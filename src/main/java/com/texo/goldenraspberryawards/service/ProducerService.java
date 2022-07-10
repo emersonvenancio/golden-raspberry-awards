@@ -1,11 +1,14 @@
 package com.texo.goldenraspberryawards.service;
 
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,16 +27,18 @@ public class ProducerService {
 	private ProducerRepository repository;
 
 	public ProducerAwardsFrequecy getAwardsFrequecy() {
-		final List<AwardInteval> intervals = mapToIntervals(repository.findAllWithWinnerMovies());
+		final LinkedList<AwardInteval> intervals = mapToIntervals(repository.findAllWithWinnerMovies());
 		if (intervals.isEmpty()) {
 			return new ProducerAwardsFrequecy();
 		}
 		sortByInterval(intervals);
 
-		final Map<Integer, List<AwardInteval>> map = groupingByInterval(intervals);
+		final Map<Integer, List<AwardInteval>> intervalsMap = groupingByInterval(intervals);
 
-		return new ProducerAwardsFrequecy(map.get(intervals.get(0).getInterval()),
-			map.get(intervals.get(intervals.size() - 1).getInterval()));
+		final List<AwardInteval> min = intervalsMap.get(intervals.getFirst().getInterval());
+		final List<AwardInteval> max = intervalsMap.get(intervals.getLast().getInterval());
+
+		return new ProducerAwardsFrequecy(min, max);
 	}
 
 
@@ -47,17 +52,33 @@ public class ProducerService {
 	}
 
 
-	private List<AwardInteval> mapToIntervals(final List<Producer> producers) {
-		final List<AwardInteval> intervals = new ArrayList<>();
-		for (final Producer producer : producers) {
-			Movie lastMovie = null;
-			for (final Movie movie : producer.getMovies()) {
-				if (lastMovie != null) {
-					intervals.add(new AwardInteval(producer.getName(), lastMovie.getYear(), movie.getYear()));
-				}
-				lastMovie = movie;
+	private LinkedList<AwardInteval> mapToIntervals(final List<Producer> producers) {
+		return producers.stream()//
+			.filter(p -> p.getMovies().size() > 1)//
+			.map(this::mapToIntervals)//
+			.flatMap(List::stream)//
+			.collect(toCollection(LinkedList::new));
+	}
+
+
+	private List<AwardInteval> mapToIntervals(final Producer producer) {
+		final List<Movie> movies = sortByYear(producer.getMovies());
+		final List<AwardInteval> result = new ArrayList<>(movies.size() - 1);
+
+		Movie lastMovie = null;
+		for (final Movie movie : movies) {
+			if (lastMovie != null) {
+				result.add(new AwardInteval(producer.getName(), lastMovie.getYear(), movie.getYear()));
 			}
+			lastMovie = movie;
 		}
-		return intervals;
+		return result;
+	}
+
+
+	private List<Movie> sortByYear(final Set<Movie> movies) {
+		return movies.stream()//
+			.sorted((a, b) -> Integer.compare(a.getYear(), b.getYear()))//
+			.collect(Collectors.toList());
 	}
 }

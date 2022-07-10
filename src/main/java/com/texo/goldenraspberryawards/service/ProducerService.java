@@ -4,7 +4,6 @@ import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ public class ProducerService {
 		if (intervals.isEmpty()) {
 			return new ProducerAwardsFrequecy();
 		}
-		sortByInterval(intervals);
 
 		final Map<Integer, List<AwardInteval>> intervalsMap = groupingByInterval(intervals);
 
@@ -39,11 +37,6 @@ public class ProducerService {
 		final List<AwardInteval> max = intervalsMap.get(intervals.getLast().getInterval());
 
 		return new ProducerAwardsFrequecy(min, max);
-	}
-
-
-	private void sortByInterval(final List<AwardInteval> intervals) {
-		Collections.sort(intervals, (a, b) -> Integer.compare(a.getInterval(), b.getInterval()));
 	}
 
 
@@ -57,7 +50,7 @@ public class ProducerService {
 			.filter(p -> p.getMovies().size() > 1)//
 			.map(this::mapToIntervals)//
 			.flatMap(List::stream)//
-			.collect(toCollection(LinkedList::new));
+			.sorted((a, b) -> Integer.compare(a.getInterval(), b.getInterval())).collect(toCollection(LinkedList::new));
 	}
 
 
